@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:vidra_player/adapters/video_player/video_player.dart';
 import 'package:vidra_player/adapters/window/standard_window_delegate.dart';
 import 'package:vidra_player/core/state/view_mode.dart';
 import 'package:vidra_player/vidra_player.dart';

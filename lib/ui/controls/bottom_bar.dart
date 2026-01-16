@@ -8,7 +8,7 @@ import 'quality_selector.dart';
 import 'speed_selector.dart';
 import 'more_menu_parts.dart';
 import '../../utils/screen.dart';
-import '../widget/animation_button.dart';
+import '../widget/animated_icon_button.dart';
 
 class BottomBar extends StatelessWidget {
   final PlayerController controller;
@@ -141,21 +141,17 @@ class BottomBar extends StatelessWidget {
                                         .features
                                         .enablePictureInPicture &&
                                     !view.isFullscreen)
-                                  AnimationButton(
-                                    onTap: () => controller.togglePip(),
-                                    child: IconButton(
-                                      key: const ValueKey(
-                                        'bottom_bar_pip_button',
-                                      ),
-                                      icon: Icon(
-                                        view.isPip
-                                            ? Icons.picture_in_picture
-                                            : Icons.picture_in_picture_alt,
-                                        color: theme.iconColor,
-                                        size: 20,
-                                      ),
-                                      onPressed: () {},
+                                  AnimatedIconButton(
+                                    key: const ValueKey(
+                                      'bottom_bar_pip_button',
                                     ),
+                                    icon: Icons.picture_in_picture_alt,
+                                    selectedIcon: Icons.picture_in_picture,
+                                    isSelected: view.isPip,
+                                    color: theme.iconColor,
+                                    iconSize: 20,
+                                    onPressed: () => controller.togglePip(),
+                                    debounce: true,
                                   ),
                                 if (!view.isPip) ...[
                                   if (controller
@@ -169,20 +165,17 @@ class BottomBar extends StatelessWidget {
                                       ),
                                       width: spaceW,
                                     ),
-                                  AnimationButton(
-                                    onTap: () => controller.toggleFullscreen(),
-                                    child: IconButton(
-                                      key: const ValueKey(
-                                        'bottom_bar_fullscreen_button',
-                                      ),
-                                      icon: Icon(
-                                        view.isFullscreen
-                                            ? Icons.fullscreen_exit
-                                            : Icons.fullscreen,
-                                        color: theme.iconColor,
-                                      ),
-                                      onPressed: () {},
+                                  AnimatedIconButton(
+                                    key: const ValueKey(
+                                      'bottom_bar_fullscreen_button',
                                     ),
+                                    icon: Icons.fullscreen,
+                                    selectedIcon: Icons.fullscreen_exit,
+                                    isSelected: view.isFullscreen,
+                                    color: theme.iconColor,
+                                    onPressed: () =>
+                                        controller.toggleFullscreen(),
+                                    debounce: true,
                                   ),
                                 ],
                               ],

@@ -6,7 +6,8 @@ import '../widget/reveal_aimation.dart';
 import 'top_bar.dart';
 import 'progress_bar.dart';
 import 'time_display.dart';
-import '../widget/animation_button.dart';
+import '../widget/animated_icon_button.dart';
+import '../widget/animation_widget.dart';
 
 /// Mobile video control panel
 class MobileVideoControls extends StatelessWidget {
@@ -164,7 +165,7 @@ class _MobileCenterControls extends StatelessWidget {
     required double size,
     double iconSize = 28,
   }) {
-    return AnimationButton(
+    return AnimationWidget(
       onTap: onTap,
       child: Container(
         width: size,
@@ -210,34 +211,28 @@ class _MobileBottomControls extends StatelessWidget {
                 children: [
                   if (controller.config.features.enablePictureInPicture &&
                       !isFullscreen)
-                    AnimationButton(
-                      onTap: () => controller.togglePip(),
-                      child: IconButton(
-                        key: const ValueKey('mobile_pip_button'),
-                        onPressed: () {},
-                        icon: Icon(
-                          isPip
-                              ? Icons.picture_in_picture
-                              : Icons.picture_in_picture_alt,
-                          color: theme.iconColor,
-                          size: 24,
-                        ),
-                        padding: const EdgeInsets.all(8),
-                        constraints: const BoxConstraints(),
-                      ),
-                    ),
-                  AnimationButton(
-                    onTap: () => controller.toggleFullscreen(),
-                    child: IconButton(
-                      onPressed: () {},
-                      icon: Icon(
-                        isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                        color: theme.iconColor,
-                        size: 24,
-                      ),
+                    AnimatedIconButton(
+                      key: const ValueKey('mobile_pip_button'),
+                      onPressed: () => controller.togglePip(),
+                      icon: Icons.picture_in_picture_alt,
+                      selectedIcon: Icons.picture_in_picture,
+                      isSelected: isPip,
+                      color: theme.iconColor,
+                      iconSize: 24,
                       padding: const EdgeInsets.all(8),
                       constraints: const BoxConstraints(),
+                      debounce: true,
                     ),
+                  AnimatedIconButton(
+                    onPressed: () => controller.toggleFullscreen(),
+                    icon: Icons.fullscreen,
+                    selectedIcon: Icons.fullscreen_exit,
+                    isSelected: isFullscreen,
+                    color: theme.iconColor,
+                    iconSize: 24,
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                    debounce: true,
                   ),
                 ],
               );

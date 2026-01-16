@@ -8,6 +8,7 @@ import '../../core/model/model.dart';
 import '../../utils/screen.dart';
 import '../../utils/no_scrollbar_behavior.dart';
 import '../widget/blur.dart';
+import '../widget/animated_icon_button.dart';
 
 /// Episode list component
 class EpisodeList extends StatefulWidget {
@@ -215,13 +216,11 @@ class _EpisodeListState extends State<EpisodeList> {
           ),
           Spacer(),
 
-          IconButton(
+          AnimatedIconButton(
             key: const ValueKey('episode_list_sort_button'),
-            icon: Icon(
-              _isAscending ? Icons.sort_rounded : Icons.sort_rounded,
-              color: theme.iconColor.withValues(alpha: 0.7),
-              size: 20.0,
-            ),
+            icon: Icons.sort_rounded,
+            color: theme.iconColor.withValues(alpha: 0.7),
+            iconSize: 20.0,
             tooltip: _isAscending
                 ? l10n.translate('sort_ascending')
                 : l10n.translate('sort_descending'),
@@ -231,13 +230,16 @@ class _EpisodeListState extends State<EpisodeList> {
                 _filterEpisodes();
               });
             },
+            debounce: true,
           ),
           const SizedBox(width: 8.0),
-          IconButton(
+          AnimatedIconButton(
             key: const ValueKey('episode_list_close_button'),
-            icon: Icon(Icons.close, color: theme.iconColor),
+            icon: Icons.close,
+            color: theme.iconColor,
             iconSize: 20.0,
             onPressed: widget.onClose,
+            debounce: true,
           ),
         ],
       ),

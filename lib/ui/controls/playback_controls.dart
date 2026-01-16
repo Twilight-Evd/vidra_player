@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../controller/player_controller.dart';
 import '../../core/state/states.dart';
+import '../widget/animated_icon_button.dart';
 import 'volume_control.dart';
-import '../widget/animation_button.dart';
 
 class PlaybackControls extends StatelessWidget {
   final PlayerController controller;
@@ -49,20 +49,13 @@ class PlaybackControls extends StatelessWidget {
                           final state =
                               stateSnapshot.data ??
                               const PlaybackLifecycleState();
-                          return AnimationButton(
-                            onTap: () => controller.togglePlayPause(),
-                            child: IconButton(
-                              key: const ValueKey(
-                                'bottom_bar_play_pause_button',
-                              ),
-                              icon: Icon(
-                                state.isPlaying
-                                    ? Icons.pause
-                                    : Icons.play_arrow,
-                                color: theme.iconColor,
-                              ),
-                              onPressed: () {},
-                            ),
+                          return AnimatedIconButton(
+                            icon: Icons.play_arrow,
+                            selectedIcon: Icons.pause,
+                            isSelected: state.isPlaying,
+                            color: theme.iconColor,
+                            onPressed: () => controller.togglePlayPause(),
+                            debounce: true,
                           );
                         },
                       ),
@@ -72,38 +65,30 @@ class PlaybackControls extends StatelessWidget {
                 : const SizedBox.shrink(key: ValueKey('play_pause_empty')),
           ),
         ),
-        AnimationButton(
+        AnimatedIconButton(
+          key: const ValueKey('bottom_bar_previous_button'),
+          icon: Icons.skip_previous,
+          color: controller.hasPreviousEpisode
+              ? theme.iconColor
+              : theme.iconColorDisabled,
+          onPressed: controller.hasPreviousEpisode ? () {} : null,
           onCompleted: controller.hasPreviousEpisode
               ? () => controller.playPreviousEpisode()
               : null,
           debounce: true,
-          child: IconButton(
-            key: const ValueKey('bottom_bar_previous_button'),
-            icon: Icon(
-              Icons.skip_previous,
-              color: controller.hasPreviousEpisode
-                  ? theme.iconColor
-                  : theme.iconColorDisabled,
-            ),
-            onPressed: () {},
-          ),
         ),
         const SizedBox(width: 8),
-        AnimationButton(
+        AnimatedIconButton(
+          key: const ValueKey('bottom_bar_next_button'),
+          icon: Icons.skip_next,
+          color: controller.hasNextEpisode
+              ? theme.iconColor
+              : theme.iconColorDisabled,
+          onPressed: controller.hasNextEpisode ? () {} : null,
           onCompleted: controller.hasNextEpisode
               ? () => controller.playNextEpisode()
               : null,
           debounce: true,
-          child: IconButton(
-            key: const ValueKey('bottom_bar_next_button'),
-            icon: Icon(
-              Icons.skip_next,
-              color: controller.hasNextEpisode
-                  ? theme.iconColor
-                  : theme.iconColorDisabled,
-            ),
-            onPressed: () {},
-          ),
         ),
         const SizedBox(width: 8),
         // Volume Control

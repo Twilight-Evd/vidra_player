@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../controller/player_controller.dart';
 import '../../core/state/states.dart';
-import '../widget/animation_button.dart';
+import '../widget/animated_icon_button.dart';
 
 class VolumeControl extends StatefulWidget {
   final PlayerController controller;
@@ -40,21 +40,15 @@ class _VolumeControlState extends State<VolumeControl> {
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AnimationButton(
-                onTap: () => widget.controller.toggleMute(),
-                child: IconButton(
-                  key: const ValueKey('volume_mute_button'),
-                  icon: Icon(
-                    isMuted || volume == 0
-                        ? Icons.volume_off
-                        : volume < 0.5
-                        ? Icons.volume_down
-                        : Icons.volume_up,
-                    color: theme.iconColor,
-                    size: 20,
-                  ),
-                  onPressed: () {},
-                ),
+              AnimatedIconButton(
+                key: const ValueKey('volume_mute_button'),
+                icon: volume < 0.5 ? Icons.volume_down : Icons.volume_up,
+                selectedIcon: Icons.volume_off,
+                isSelected: isMuted || volume == 0,
+                color: theme.iconColor,
+                iconSize: 20,
+                onPressed: () => widget.controller.toggleMute(),
+                debounce: true,
               ),
               AnimatedContainer(
                 margin: EdgeInsets.only(right: 5),
