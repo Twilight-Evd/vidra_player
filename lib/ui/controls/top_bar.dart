@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../controller/player_controller.dart';
 import '../../utils/screen.dart';
 import 'more_menu_parts.dart';
-import '../widget/animation_button.dart';
+import '../widget/animated_icon_button.dart';
 
 class TopBar extends StatelessWidget {
   final PlayerController controller;
@@ -33,13 +33,11 @@ class TopBar extends StatelessWidget {
         ),
         if (controller.hasNextEpisode) ...[
           const SizedBox(width: 16),
-          AnimationButton(
-            onTap: () => controller.toggleEpisodeList(),
-            child: IconButton(
-              key: const ValueKey('top_bar_episode_list_button'),
-              icon: Icon(Icons.list, color: theme.iconColor),
-              onPressed: () {},
-            ),
+          AnimatedIconButton(
+            key: const ValueKey('top_bar_episode_list_button'),
+            icon: Icons.list,
+            color: theme.iconColor,
+            onPressed: () => controller.toggleEpisodeList(),
           ),
         ],
 

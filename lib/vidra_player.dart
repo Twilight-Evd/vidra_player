@@ -56,6 +56,9 @@ export 'core/model/video_source.dart' show VideoSource;
 // Localization
 export 'core/localization/localization.dart' show VidraLocalization;
 
+// default video player adapter
+export 'adapters/video_player/video_player.dart';
+
 // ============================================
 // INTERNAL IMPLEMENTATION
 // All other files are internal and should not

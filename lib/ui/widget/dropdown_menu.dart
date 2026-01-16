@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:vidra_player/ui/widget/blur.dart';
-import 'package:vidra_player/ui/widget/animation_button.dart';
-import 'package:vidra_player/utils/no_scrollbar_behavior.dart';
 
+import '../../utils/no_scrollbar_behavior.dart';
 import '../../utils/screen.dart';
 import '../../core/model/player_ui_theme.dart';
+import 'animation_widget.dart';
+import 'blur.dart';
 
 /// Smooth dropdown menu component, based on PlayerOverlayPanel style
 class VDropdownMenu extends StatefulWidget {
@@ -275,13 +275,21 @@ class _DropdownMenuState extends State<VDropdownMenu>
 
   @override
   Widget build(BuildContext context) {
+    final child = widget.child;
     return CompositedTransformTarget(
       link: _layerLink,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: widget.useAnimation
-            ? AnimationButton(onTap: _toggleMenu, child: widget.child)
-            : GestureDetector(onTap: _toggleMenu, child: widget.child),
+            ? AnimationWidget(onTap: _toggleMenu, child: child)
+            : Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (_) {
+                  _toggleMenu();
+                },
+                onPointerUp: (_) {},
+                child: child,
+              ),
       ),
     );
   }
@@ -515,7 +523,7 @@ class _AdjustmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimationButton(
+    return AnimationWidget(
       onTap: onPressed,
       child: Container(
         padding: const EdgeInsets.all(4),

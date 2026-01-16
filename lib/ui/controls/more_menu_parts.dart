@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../controller/player_controller.dart';
 import '../../core/model/model.dart';
 import '../../core/state/states.dart';
+import '../widget/animated_icon_button.dart';
 import '../widget/dropdown_menu.dart';
 import 'quality_selector.dart';
 import 'speed_selector.dart';
@@ -37,17 +38,17 @@ class SettingsMenu extends StatelessWidget {
       onClose: () {
         if (!isMoreMenu) controller.hideMoreMenu();
       },
-      useAnimation: true,
+      useAnimation: isMoreMenu ? true : false,
       child: isMoreMenu
           ? PlayerMenuItem(
               leading: const Icon(Icons.settings),
               text: controller.localization.translate('settings'),
               theme: theme,
             )
-          : IconButton(
-              icon: Icon(Icons.settings, color: theme.iconColor),
-              // tooltip: controller.localization.translate('more'),
-              onPressed: () {}, // Handled by AnimationButton -> VDropdownMenu
+          : AnimatedIconButton(
+              icon: Icons.settings,
+              color: theme.iconColor,
+              onPressed: () {},
             ),
       menuBuilder: (context, close) {
         return [
@@ -135,11 +136,12 @@ class MoreMenu extends StatelessWidget {
       offset: offset,
       alignment: alignment,
       theme: theme,
-      useAnimation: true,
-      child: IconButton(
-        icon: Icon(Icons.more_vert, color: theme.iconColor),
-        // tooltip: controller.localization.translate('more'),
-        onPressed: () {}, // Handled by AnimationButton -> VDropdownMenu
+      useAnimation: false,
+      child: AnimatedIconButton(
+        icon: Icons.more_vert,
+        color: theme.iconColor,
+        debounce: true,
+        onPressed: () {},
       ),
       onOpen: () => controller.showMoreMenu(),
       onClose: () => controller.hideMoreMenu(),

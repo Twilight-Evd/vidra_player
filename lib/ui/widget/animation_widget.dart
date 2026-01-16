@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../utils/event_control.dart';
 
-class AnimationButton extends StatefulWidget {
+class AnimationWidget extends StatefulWidget {
   final Widget child;
   final Function? onTap;
   final Function? onCompleted;
   final bool debounce;
 
-  const AnimationButton({
+  const AnimationWidget({
     super.key,
     required this.child,
     this.onTap,
@@ -17,10 +17,10 @@ class AnimationButton extends StatefulWidget {
   });
 
   @override
-  State<AnimationButton> createState() => _AnimationWidgetState();
+  State<AnimationWidget> createState() => _AnimationWidgetState();
 }
 
-class _AnimationWidgetState extends State<AnimationButton>
+class _AnimationWidgetState extends State<AnimationWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
