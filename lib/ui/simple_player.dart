@@ -45,11 +45,35 @@ class _SimpleVideoPlayerState extends State<SimpleVideoPlayer> {
   @override
   void didUpdateWidget(SimpleVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.config != oldWidget.config ||
-        widget.video != oldWidget.video ||
-        widget.episodes != oldWidget.episodes) {
+
+    // optimize: check for meaningful changes before reloading
+    bool shouldReload = false;
+
+    // 1. Check video identity
+    if (widget.video.id != oldWidget.video.id) {
+      shouldReload = true;
+    }
+
+    // 2. Check episodes (simplified check: length and first/last item)
+    if (!shouldReload) {
+      if (widget.episodes.length != oldWidget.episodes.length) {
+        shouldReload = true;
+      } else if (widget.episodes.isNotEmpty) {
+        final newFirst = widget.episodes.first;
+        final oldFirst = oldWidget.episodes.first;
+        if (newFirst.index != oldFirst.index ||
+            newFirst.title != oldFirst.title) {
+          shouldReload = true;
+        }
+      }
+    }
+
+    if (shouldReload) {
       _controller.dispose();
       _initController();
+    } else if (widget.config != oldWidget.config) {
+      // Just update config if only config changed (e.g. theme, locale)
+      _controller.updateConfig(widget.config);
     }
   }
 

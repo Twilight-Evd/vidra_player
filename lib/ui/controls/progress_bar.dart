@@ -57,6 +57,9 @@ class _VideoProgressBarState extends State<VideoProgressBar>
   late final ValueNotifier<double?> _hoverX;
   late final ValueNotifier<bool> _isHovering;
 
+  late final AnimationController _hoverController;
+  late final Animation<double> _hoverAnimation;
+
   @override
   void initState() {
     super.initState();
@@ -78,6 +81,15 @@ class _VideoProgressBarState extends State<VideoProgressBar>
       curve: Curves.easeInOut,
     );
 
+    _hoverController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _hoverAnimation = CurvedAnimation(
+      parent: _hoverController,
+      curve: Curves.easeOutCubic,
+    );
+
     if (widget.thumbVisible) {
       _toggleController.value = 1.0;
     }
@@ -86,6 +98,7 @@ class _VideoProgressBarState extends State<VideoProgressBar>
   @override
   void dispose() {
     _toggleController.dispose();
+    _hoverController.dispose();
     _animator.dispose();
     _currentPosition.dispose();
     _hoverX.dispose();
@@ -176,10 +189,12 @@ class _VideoProgressBarState extends State<VideoProgressBar>
           hitTestBehavior: HitTestBehavior.opaque,
           onEnter: (_) {
             _isHovering.value = true;
+            _hoverController.forward();
             widget.controller?.uiManager.showControlsPersistently();
           },
           onExit: (_) {
             _isHovering.value = false;
+            _hoverController.reverse();
             widget.controller?.uiManager.showControlsTemporarily();
           },
           onHover: (event) {
@@ -187,12 +202,17 @@ class _VideoProgressBarState extends State<VideoProgressBar>
             widget.controller?.uiManager.showControlsTemporarily();
           },
           child: AnimatedBuilder(
-            animation: _toggleAnimation,
+            animation: Listenable.merge([_toggleAnimation, _hoverAnimation]),
             builder: (context, child) {
               final toggleValue = _toggleAnimation.value;
+              final thumbHoverScale = 1.0 + (_hoverAnimation.value * 0.2);
+              final trackHoverScale = 1.0 + (_hoverAnimation.value * 1.0);
+
               final currentHeight =
-                  2.0 + (widget.barHeight - 2.0) * toggleValue;
-              final currentRadius = widget.handleRadius * toggleValue;
+                  (2.0 + (widget.barHeight - 2.0) * toggleValue) *
+                  trackHoverScale;
+              final currentRadius =
+                  (widget.handleRadius * toggleValue) * thumbHoverScale;
 
               return Stack(
                 clipBehavior: Clip.none,
@@ -379,17 +399,26 @@ class _VideoProgressBarState extends State<VideoProgressBar>
 
                 final duration = Duration(milliseconds: displayTime.toInt());
 
+                // Calculate tooltip width dynamically
+                final bool showThumbnail =
+                    widget.controller != null &&
+                    widget.controller!.enableThumbnail;
+                final double tooltipWidth = showThumbnail ? 160.0 : 50.0;
+
+                // Center the tooltip on the cursor (innerDisplayX), then clamp to screen bounds
+                final double leftPos =
+                    (widget.padding + innerDisplayX - (tooltipWidth / 2)).clamp(
+                      0.0,
+                      width - tooltipWidth,
+                    );
+
                 return Positioned(
-                  left: (widget.padding + innerDisplayX - 25).clamp(
-                    0.0,
-                    width - 50,
-                  ),
+                  left: leftPos,
                   bottom: 12,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (widget.controller != null &&
-                          widget.controller!.enableThumbnail)
+                      if (showThumbnail)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: ThumbnailPreview(
