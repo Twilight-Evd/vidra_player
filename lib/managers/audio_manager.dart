@@ -2,7 +2,6 @@ import 'dart:async';
 
 import '../core/interfaces/video_player.dart';
 import '../core/lifecycle/lifecycle_token.dart';
-import '../core/lifecycle/safe_stream.dart';
 import '../core/state/audio.dart';
 
 class AudioManager with LifecycleTokenProvider {

@@ -127,8 +127,7 @@ class ResumeDelegate {
       );
       seek(Duration(seconds: setting.skipIntro), SeekSource.external);
       _uiManager.showSkipIntroNotification();
-    } else {
-      if (autoPlay) play();
     }
+    if (autoPlay) play();
   }
 }
