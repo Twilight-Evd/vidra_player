@@ -32,6 +32,9 @@ class PlaybackManager with LifecycleTokenProvider {
   ErrorState _errorState = const ErrorState();
   SwitchingState _switching = const SwitchingState();
 
+  // State Notifiers (for high-performance UI updates)
+  late final ValueNotifier<PlaybackPositionState> positionNotifier;
+
   // Stream Controllers
   final _lifecycleCtrl = StreamController<PlaybackLifecycleState>.broadcast();
   final _positionCtrl = StreamController<PlaybackPositionState>.broadcast();
@@ -45,6 +48,7 @@ class PlaybackManager with LifecycleTokenProvider {
   PlaybackManager({required PlayerConfig config, required IVideoPlayer player})
     : _config = config,
       _player = player {
+    positionNotifier = ValueNotifier<PlaybackPositionState>(_positionState);
     _bindPlayerStreams();
   }
 
@@ -248,6 +252,7 @@ class PlaybackManager with LifecycleTokenProvider {
         if (!token.isAlive) return;
 
         _positionState = _positionState.copyWith(buffered: buffered);
+        positionNotifier.value = _positionState;
         safeEmit(_positionCtrl, _positionState, token);
       }),
     );
@@ -284,6 +289,7 @@ class PlaybackManager with LifecycleTokenProvider {
     if (!token.isAlive) return;
 
     _positionState = next;
+    positionNotifier.value = next;
     safeEmit(_positionCtrl, next, token);
   }
 
@@ -299,6 +305,7 @@ class PlaybackManager with LifecycleTokenProvider {
     }
     _subscriptions.clear();
     _positionTimer?.cancel();
+    positionNotifier.dispose();
     _lifecycleCtrl.close();
     _positionCtrl.close();
     _errorCtrl.close();

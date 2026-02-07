@@ -183,13 +183,6 @@ class PlayerController {
             : false,
       ),
     );
-    // Initialize delegates
-    _resumeDelegate = ResumeDelegate(
-      mediaManager: mediaManager,
-      uiManager: uiManager,
-    );
-    _skipDelegate = SkipDelegate(uiManager: uiManager);
-
     _bindStreams();
 
     _initialize(
@@ -197,6 +190,14 @@ class PlayerController {
       episodes: episodes,
       initEpisodeIndex: config.initialEpisodeIndex,
     );
+
+    // Initialize delegates
+    _resumeDelegate = ResumeDelegate(
+      mediaManager: mediaManager,
+      uiManager: uiManager,
+    );
+    _skipDelegate = SkipDelegate(uiManager: uiManager);
+
     _bindWindowEvents();
 
     _player = player;
@@ -856,8 +857,14 @@ class PlayerController {
       if (state.status != previousState.status) {
         if (state.isPlaying) {
           _safeEmit(const PlaybackStarted());
+          // Always resume updates when playing (supports Background/PiP)
+          if (!_isDisposed) {
+            _resumePositionUpdates();
+          }
         } else if (state.status == PlaybackStatus.paused) {
           _safeEmit(const PlaybackPaused());
+          // Strict optimization: Pause stream monitoring when playback is paused
+          _pausePositionUpdates();
 
           // Save history only on TRANSITION to paused
           if (media.video != null &&
@@ -873,108 +880,11 @@ class PlayerController {
       }
     });
 
-    _positionSub = positionStream.listen((state) async {
-      if (_isDisposed) return;
-
-      // --- Seek Events ---
-      if (state.isSeeking && !_wasSeeking) {
-        _wasSeeking = true;
-        _safeEmit(PlaybackSeekStarted(from: _lastPosition.position));
-        _hasEmittedPlaylistEnded = false; // Reset on seek
-      } else if (!state.isSeeking && _wasSeeking) {
-        _wasSeeking = false;
-        _safeEmit(PlaybackSeekCompleted(to: state.position));
-      }
-
-      _lastPosition = state;
-
-      // --- Auto Skip Outro Logic (delegated) ---
-      if (!_isSkippingOutro && !_hasSkippedOutro && !state.isSeeking) {
-        final processingEpisodeIndex = media.currentEpisodeIndex;
-        final skipped = await _skipDelegate.checkAndSkipOutro(
-          position: state,
-          setting: playerSetting,
-          isSwitchingEpisode: _isSwitchingEpisode,
-          pendingResumeCheck: _pendingResumeCheck,
-          hasNextEpisode: hasNextEpisode,
-          playNextEpisode: playNextEpisode,
-          pause: pause,
-        );
-        if (skipped) {
-          // Identify if it was a next-episode skip or a playlist-end skip
-          final currentEp = media.currentEpisode;
-          if (currentEp != null && !_hasEmittedPlaylistEnded) {
-            _safeEmit(
-              EpisodeEnded(
-                index: media.currentEpisodeIndex,
-                episode: currentEp,
-              ),
-            );
-
-            if (!hasNextEpisode) {
-              _safeEmit(
-                PlaylistEnded(video: media.video, episodes: media.episodes),
-              );
-              _hasEmittedPlaylistEnded = true;
-            }
-          }
-
-          _isSkippingOutro = true;
-          // Only mark as skipped if we are still on the same episode (i.e. didn't switch)
-          if (media.currentEpisodeIndex == processingEpisodeIndex) {
-            _hasSkippedOutro = true;
-          }
-
-          // Reset flag after delay
-          Future.delayed(const Duration(milliseconds: 500), () {
-            _isSkippingOutro = false;
-          });
-        }
-      }
-
-      // --- Natural End Detection ---
-      if (!_isSkippingOutro &&
-          !_hasEmittedPlaylistEnded &&
-          !state.isSeeking &&
-          state.duration > Duration.zero &&
-          state.position >=
-              state.duration - const Duration(milliseconds: 200)) {
-        final currentEp = media.currentEpisode;
-        if (currentEp != null) {
-          _safeEmit(
-            EpisodeEnded(index: media.currentEpisodeIndex, episode: currentEp),
-          );
-
-          if (!hasNextEpisode) {
-            _safeEmit(
-              PlaylistEnded(video: media.video, episodes: media.episodes),
-            );
-            _hasEmittedPlaylistEnded = true;
-          } else {
-            _hasEmittedPlaylistEnded = true;
-          }
-        }
-      }
-
-      // Save history periodically
-      final isResumeDialogShowing =
-          uiManager.currentVisibility.showResumeDialog;
-      final isReplayDialogShowing =
-          uiManager.currentVisibility.showReplayDialog;
-
-      if (!_pendingResumeCheck &&
-          !_isSwitchingEpisode &&
-          !isResumeDialogShowing &&
-          !isReplayDialogShowing &&
-          media.video != null &&
-          media.currentEpisode != null) {
-        mediaManager.saveProgress(
-          episodeIndex: media.currentEpisodeIndex,
-          positionMillis: state.position.inMilliseconds,
-          durationMillis: state.duration.inMilliseconds,
-        );
-      }
-    });
+    // Start with position updates paused if not playing
+    _positionSub = positionStream.listen(_onPositionUpdate);
+    if (!_lastLifecycle.isPlaying) {
+      _positionSub?.pause();
+    }
 
     _mediaSub = mediaStream.listen((state) {
       if (_isDisposed) return;
@@ -1001,6 +911,124 @@ class PlayerController {
     });
   }
 
+  /// Extracted frame-dependent logic: Runs ONLY when explicitly allowed
+  Future<void> _onPositionUpdate(PlaybackPositionState state) async {
+    if (_isDisposed) return;
+
+    // --- Seek Events ---
+    if (state.isSeeking && !_wasSeeking) {
+      _wasSeeking = true;
+      _safeEmit(PlaybackSeekStarted(from: _lastPosition.position));
+      _hasEmittedPlaylistEnded = false; // Reset on seek
+    } else if (!state.isSeeking && _wasSeeking) {
+      _wasSeeking = false;
+      _safeEmit(PlaybackSeekCompleted(to: state.position));
+    }
+
+    _lastPosition = state;
+
+    // --- Auto Skip Outro Logic (delegated) ---
+    if (!_isSkippingOutro && !_hasSkippedOutro && !state.isSeeking) {
+      final processingEpisodeIndex = media.currentEpisodeIndex;
+      final skipped = await _skipDelegate.checkAndSkipOutro(
+        position: state,
+        setting: playerSetting,
+        isSwitchingEpisode: _isSwitchingEpisode,
+        pendingResumeCheck: _pendingResumeCheck,
+        hasNextEpisode: hasNextEpisode,
+        playNextEpisode: playNextEpisode,
+        pause: pause,
+      );
+      if (skipped) {
+        // Identify if it was a next-episode skip or a playlist-end skip
+        final currentEp = media.currentEpisode;
+        if (currentEp != null && !_hasEmittedPlaylistEnded) {
+          _safeEmit(
+            EpisodeEnded(index: media.currentEpisodeIndex, episode: currentEp),
+          );
+
+          if (!hasNextEpisode) {
+            _safeEmit(
+              PlaylistEnded(video: media.video, episodes: media.episodes),
+            );
+            _hasEmittedPlaylistEnded = true;
+          }
+        }
+
+        _isSkippingOutro = true;
+        // Only mark as skipped if we are still on the same episode (i.e. didn't switch)
+        if (media.currentEpisodeIndex == processingEpisodeIndex) {
+          _hasSkippedOutro = true;
+        }
+
+        // Reset flag after delay
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _isSkippingOutro = false;
+        });
+      }
+    }
+
+    // --- Natural End Detection ---
+    if (!_isSkippingOutro &&
+        !_hasEmittedPlaylistEnded &&
+        !state.isSeeking &&
+        state.duration > Duration.zero &&
+        state.position >= state.duration - const Duration(milliseconds: 200)) {
+      final currentEp = media.currentEpisode;
+      if (currentEp != null) {
+        _safeEmit(
+          EpisodeEnded(index: media.currentEpisodeIndex, episode: currentEp),
+        );
+
+        if (!hasNextEpisode) {
+          _safeEmit(
+            PlaylistEnded(video: media.video, episodes: media.episodes),
+          );
+          _hasEmittedPlaylistEnded = true;
+
+          // Show replay dialog on natural end of playlist
+          uiManager.showReplayDialog(
+            ResumeState(
+              positionMillis: state.position.inMilliseconds,
+              durationMillis: state.duration.inMilliseconds,
+            ),
+          );
+        } else {
+          _hasEmittedPlaylistEnded = true;
+        }
+      }
+    }
+
+    // Save history periodically
+    final isResumeDialogShowing = uiManager.currentVisibility.showResumeDialog;
+    final isReplayDialogShowing = uiManager.currentVisibility.showReplayDialog;
+
+    if (!_pendingResumeCheck &&
+        !_isSwitchingEpisode &&
+        !isResumeDialogShowing &&
+        !isReplayDialogShowing &&
+        media.video != null &&
+        media.currentEpisode != null) {
+      mediaManager.saveProgress(
+        episodeIndex: media.currentEpisodeIndex,
+        positionMillis: state.position.inMilliseconds,
+        durationMillis: state.duration.inMilliseconds,
+      );
+    }
+  }
+
+  void _pausePositionUpdates() {
+    if (_positionSub != null && !_positionSub!.isPaused) {
+      _positionSub!.pause();
+    }
+  }
+
+  void _resumePositionUpdates() {
+    if (_positionSub != null && _positionSub!.isPaused) {
+      _positionSub!.resume();
+    }
+  }
+
   void _bindWindowEvents() {
     _windowSub = _windowManager.eventStream.listen((event) {
       if (_isDisposed) return;
@@ -1008,27 +1036,46 @@ class PlayerController {
       switch (event.type) {
         case WindowEventType.focusGained:
           uiManager.updateWindowState(hasFocus: true);
-
           playbackManager.refreshState();
           break;
         case WindowEventType.focusLost:
           uiManager.updateWindowState(hasFocus: false);
-
           break;
         case WindowEventType.minimized:
           uiManager.updateWindowState(isMinimized: true);
 
+          final isPip = uiManager.currentViewMode.isPip;
+          if (config.behavior.pauseOnMinimize &&
+              lifecycle.isPlaying &&
+              !isPip) {
+            pause();
+          }
+          // Do NOT force pause updates here.
+          // If paused above, the listener on lifecycleStream will pause updates.
+          // If not paused (e.g. background audio or PiP), we keep updates running.
           break;
         case WindowEventType.restored:
           uiManager.updateWindowState(isMinimized: false);
-
+          if (lifecycle.isPlaying) {
+            _resumePositionUpdates();
+          }
           break;
         case WindowEventType.visibilityChanged:
           final isVisible = event.data as bool;
-
           uiManager.updateWindowState(isMinimized: !isVisible);
           if (isVisible) {
             playbackManager.refreshState();
+            if (lifecycle.isPlaying) {
+              _resumePositionUpdates();
+            }
+          } else {
+            final isPip = uiManager.currentViewMode.isPip;
+            if (!isPip &&
+                config.behavior.pauseOnMinimize &&
+                lifecycle.isPlaying) {
+              pause();
+            }
+            // Same logic: let pause() status change handle the stream pausing.
           }
           break;
         default:

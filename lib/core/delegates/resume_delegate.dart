@@ -41,8 +41,8 @@ class ResumeDelegate {
       return;
     }
 
-    // Wait for player to initialize
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Wait for player to stabilize (reduced from 500ms for better UX)
+    await Future.delayed(const Duration(milliseconds: 100));
 
     // Re-check state after async
     if (isDisposed || _mediaManager.state.currentEpisodeIndex != episodeIndex) {

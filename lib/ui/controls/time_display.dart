@@ -11,11 +11,9 @@ class TimeDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = controller.config.theme;
-    return StreamBuilder<PlaybackPositionState>(
-      stream: controller.positionStream,
-      initialData: controller.position,
-      builder: (context, stateSnapshot) {
-        final state = stateSnapshot.data ?? const PlaybackPositionState();
+    return ValueListenableBuilder<PlaybackPositionState>(
+      valueListenable: controller.playbackManager.positionNotifier,
+      builder: (context, state, _) {
         return Text(
           '${Util.formatDuration(state.position)} / ${Util.formatDuration(state.duration)}',
           style: TextStyle(color: theme.textColor),

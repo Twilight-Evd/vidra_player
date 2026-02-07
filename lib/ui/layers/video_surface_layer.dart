@@ -24,7 +24,6 @@ class VideoSurfaceLayer extends StatelessWidget {
       builder: (context, snapshot) {
         final state = snapshot.data;
 
-        // 1. 未初始化状态：显示封面图和Loading
         if (state == null || !state.isInitialized) {
           final coverUrl = controller.mediaManager.state.video?.coverUrl;
 
@@ -40,7 +39,6 @@ class VideoSurfaceLayer extends StatelessWidget {
               Image.network(
                 coverUrl,
                 errorBuilder: (ctx, err, stack) => const SizedBox.shrink(),
-                fit: BoxFit.cover,
               ),
               Container(color: Colors.black54),
               Center(
@@ -51,7 +49,6 @@ class VideoSurfaceLayer extends StatelessWidget {
           );
         }
 
-        // 2. 已初始化：显示视频纹理
         return Center(
           child: RepaintBoundary(
             child: AspectRatio(

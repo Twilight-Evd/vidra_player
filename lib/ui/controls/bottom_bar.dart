@@ -22,12 +22,9 @@ class BottomBar extends StatelessWidget {
 
   Widget _buildProgressBar() {
     final theme = controller.config.theme;
-    return StreamBuilder<PlaybackPositionState>(
-      stream: controller.positionStream,
-      initialData: controller.position,
-      builder: (context, stateSnapshot) {
-        final state = stateSnapshot.data ?? const PlaybackPositionState();
-
+    return ValueListenableBuilder<PlaybackPositionState>(
+      valueListenable: controller.playbackManager.positionNotifier,
+      builder: (context, state, _) {
         final displayPosition = state.isSeeking && state.seekTarget != null
             ? state.seekTarget!
             : state.position;

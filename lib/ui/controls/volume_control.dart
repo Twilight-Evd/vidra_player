@@ -18,16 +18,15 @@ class _VolumeControlState extends State<VolumeControl> {
   @override
   Widget build(BuildContext context) {
     final theme = widget.controller.config.theme;
-    // final l10n = widget.controller.localization;
-
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) {
         setState(() => _isHovering = true);
-        // widget.controller.uiManager.handleMouseEnterControls();
+        widget.controller.uiManager.handleMouseEnterControls();
       },
       onExit: (_) {
         setState(() => _isHovering = false);
-        // widget.controller.uiManager.handleMouseLeaveControls();
+        widget.controller.uiManager.handleMouseLeaveControls();
       },
       child: StreamBuilder<AudioState>(
         stream: widget.controller.audioStream,

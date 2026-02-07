@@ -72,38 +72,49 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
       },
       child: ColoredBox(
         color: Colors.black,
-        child: Stack(
-          fit: StackFit.expand,
+        child: CustomMultiChildLayout(
+          delegate: VideoPlayerLayoutDelegate(),
           children: [
             // 1. Video Display Area
-            VideoSurfaceLayer(
-              controller: widget.controller,
-              customLoading: widget.customLoading,
+            LayoutId(
+              id: 'video',
+              child: VideoSurfaceLayer(
+                controller: widget.controller,
+                customLoading: widget.customLoading,
+              ),
             ),
-
             // 2. Background Interaction Layer
-            GestureDetectorLayer(
-              controller: widget.controller,
-              onDoubleTap: _handleDoubleTap,
+            LayoutId(
+              id: 'gestures',
+              child: GestureDetectorLayer(
+                controller: widget.controller,
+                onDoubleTap: _handleDoubleTap,
+              ),
             ),
-
             // 3. Buffering Indicator
-            BufferingIndicatorLayer(
-              controller: widget.controller,
-              customLoading: widget.customLoading,
+            LayoutId(
+              id: 'indicators',
+              child: BufferingIndicatorLayer(
+                controller: widget.controller,
+                customLoading: widget.customLoading,
+              ),
             ),
-
             // 4. Error Display
-            ErrorDisplayLayer(
-              controller: widget.controller,
-              customError: widget.customError,
+            LayoutId(
+              id: 'errors',
+              child: ErrorDisplayLayer(
+                controller: widget.controller,
+                customError: widget.customError,
+              ),
             ),
-
             // 5. UI Controls & Overlays
-            ControlsOverlayLayer(
-              controller: widget.controller,
-              customControls: widget.customControls,
-              showDefaultControls: widget.showDefaultControls,
+            LayoutId(
+              id: 'controls',
+              child: ControlsOverlayLayer(
+                controller: widget.controller,
+                customControls: widget.customControls,
+                showDefaultControls: widget.showDefaultControls,
+              ),
             ),
           ],
         ),
@@ -159,4 +170,33 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget>
       widget.controller.handleKeyboardShortcut('<');
     }
   }
+}
+
+class VideoPlayerLayoutDelegate extends MultiChildLayoutDelegate {
+  @override
+  void performLayout(Size size) {
+    if (hasChild('video')) {
+      layoutChild('video', BoxConstraints.tight(size));
+      positionChild('video', Offset.zero);
+    }
+    if (hasChild('gestures')) {
+      layoutChild('gestures', BoxConstraints.tight(size));
+      positionChild('gestures', Offset.zero);
+    }
+    if (hasChild('indicators')) {
+      layoutChild('indicators', BoxConstraints.tight(size));
+      positionChild('indicators', Offset.zero);
+    }
+    if (hasChild('errors')) {
+      layoutChild('errors', BoxConstraints.tight(size));
+      positionChild('errors', Offset.zero);
+    }
+    if (hasChild('controls')) {
+      layoutChild('controls', BoxConstraints.tight(size));
+      positionChild('controls', Offset.zero);
+    }
+  }
+
+  @override
+  bool shouldRelayout(covariant MultiChildLayoutDelegate oldDelegate) => false;
 }

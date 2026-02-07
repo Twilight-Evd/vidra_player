@@ -18,16 +18,31 @@ class BufferingIndicatorLayer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = controller.config.theme;
 
-    return StreamBuilder<BufferingState>(
-      stream: controller.bufferingStream,
-      initialData: controller.buffering,
-      builder: (context, snapshot) {
-        final isBuffering = snapshot.data?.isBuffering ?? false;
+    return StreamBuilder<PlaybackLifecycleState>(
+      stream: controller.lifecycleStream,
+      initialData: controller.lifecycle,
+      builder: (context, lifecycleSnapshot) {
+        final lifecycle = lifecycleSnapshot.data ?? controller.lifecycle;
 
-        if (!isBuffering) return const SizedBox.shrink();
+        return StreamBuilder<BufferingState>(
+          stream: controller.bufferingStream,
+          initialData: controller.buffering,
+          builder: (context, bufferingSnapshot) {
+            final isBuffering = bufferingSnapshot.data?.isBuffering ?? false;
 
-        return Center(
-          child: customLoading ?? NetflixLoading(color: theme.primaryColor),
+            // Only show buffering indicator if:
+            // 1. We are actually buffering
+            // 2. We are playing OR we haven't finished initializing yet (initial load)
+            final shouldShow =
+                isBuffering &&
+                (lifecycle.isPlaying || !lifecycle.isInitialized);
+
+            if (!shouldShow) return const SizedBox.shrink();
+
+            return Center(
+              child: customLoading ?? NetflixLoading(color: theme.primaryColor),
+            );
+          },
         );
       },
     );

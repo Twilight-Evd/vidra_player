@@ -786,7 +786,8 @@ class UIStateManager {
     return _isPlaying &&
         !_visibility.showEpisodeList &&
         !_visibility.showResumeDialog &&
-        !_visibility.showErrorDialog;
+        !_visibility.showErrorDialog &&
+        !_interaction.isHoveringControls; // Don't hide if hovering controls
   }
 
   DateTime? _getLastInteractionTime() {
@@ -869,18 +870,23 @@ class UIStateManager {
         return;
       }
 
-      // 检查是否有最近的交互
+      // 1. If hovering controls, NEVER hide. Reset timer and wait.
+      if (_interaction.isHoveringControls) {
+        _resetAutoHideTimer();
+        return;
+      }
+
+      // 2. Check if there was recent interaction (debounce)
       final lastInteraction = _getLastInteractionTime();
       if (lastInteraction != null) {
         final timeSinceInteraction = DateTime.now().difference(lastInteraction);
         if (timeSinceInteraction < delay) {
-          // 还有交互，重新计时
           _resetAutoHideTimer();
           return;
         }
       }
 
-      // 隐藏控制面板和鼠标
+      // 3. Hide
       _hideControlsAndMouse();
     });
   }
