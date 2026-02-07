@@ -49,17 +49,13 @@ class BottomBar extends StatelessWidget {
   }
 
   Widget _buildControlsArea(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSmall = ScreenHelper.isMediumScreen(context);
-        return StreamBuilder<ViewModeState>(
-          stream: controller.viewStream,
-          initialData: controller.view,
-          builder: (context, viewSnapshot) {
-            final view = viewSnapshot.data ?? controller.view;
-            return _buildControlRow(context, isSmall, view);
-          },
-        );
+    final isSmall = ScreenHelper.isMediumScreen(context);
+    return StreamBuilder<ViewModeState>(
+      stream: controller.viewStream,
+      initialData: controller.view,
+      builder: (context, viewSnapshot) {
+        final view = viewSnapshot.data ?? controller.view;
+        return _buildControlRow(context, isSmall, view);
       },
     );
   }
@@ -77,7 +73,7 @@ class BottomBar extends StatelessWidget {
           isSmall: isSmall,
         ),
         SizedBox(width: isSmall ? 4.0 : 8.0),
-        TimeDisplay(controller: controller),
+        RepaintBoundary(child: TimeDisplay(controller: controller)),
         const Spacer(),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),

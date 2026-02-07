@@ -49,8 +49,6 @@ class UIStateManager {
 
   Timer? _autoHideTimer;
   Timer? _mouseHideTimer;
-  Timer? _hoverTimer;
-  Timer? _hoverProgressTimer;
   Timer? _interactionDebounceTimer;
   Timer? _skipNotificationTimer;
   Timer? _seekFeedbackTimer;
@@ -213,6 +211,7 @@ class UIStateManager {
     _interaction = _interaction.copyWith(
       lastMouseMove: now,
       isMouseActive: true,
+      isHoveringVideo: true,
       lastMousePosition: position,
     );
 
@@ -228,9 +227,6 @@ class UIStateManager {
     if (_shouldShowControlsOnMouseMove()) {
       _showControlsTemporarily();
     }
-
-    // Start hover timer (if mouse is over control area)
-    _startHoverTimerIfNeeded();
   }
 
   /// Handle mouse enter controls
@@ -254,8 +250,6 @@ class UIStateManager {
     _interaction = _interaction.copyWith(isHoveringControls: false);
 
     _emitInteraction();
-
-    _cancelHoverTimer();
   }
 
   /// Handle mouse enter video
@@ -487,7 +481,6 @@ class UIStateManager {
       isHoveringVideo: false,
     );
 
-    _cancelHoverTimer();
     _emitInteraction();
   }
 
@@ -665,10 +658,12 @@ class UIStateManager {
     _mouseHideTimer = Timer(_behavior.mouseHideDelay, () {
       if (_isDisposed) return;
 
-      // 只有在播放中、没有交互、且控制面板隐藏时才隐藏鼠标
-      if (_isPlaying &&
-          !_interaction.isMouseActive &&
-          !_visibility.showControls) {
+      // Reset mouse active state when timer fires
+      _interaction = _interaction.copyWith(isMouseActive: false);
+      _emitInteraction();
+
+      // 只有在播放中、且控制面板隐藏时才隐藏鼠标
+      if (_isPlaying && !_visibility.showControls) {
         _updateVisibility(_visibility.copyWith(showMouseCursor: false));
       }
     });
@@ -727,50 +722,17 @@ class UIStateManager {
 
     _cancelAutoHideTimer();
     _mouseHideTimer?.cancel();
-    _hoverTimer?.cancel();
-    _hoverProgressTimer?.cancel();
-  }
-
-  void _startHoverTimerIfNeeded() {
-    if (_isDisposed || !_behavior.showControlsOnHover) return;
-
-    _hoverTimer?.cancel();
-
-    if (_interaction.isHoveringVideo || _interaction.isHoveringControls) {
-      _hoverTimer = Timer(_behavior.hoverShowDelay, () {
-        if (_isDisposed) return;
-
-        // 检查是否仍然在hover状态
-        if ((_interaction.isHoveringVideo || _interaction.isHoveringControls) &&
-            _isPlaying) {
-          _showControlsTemporarily();
-        }
-      });
-
-      // PERFORMANCE FIX: Removed Timer.periodic hover progress tracking
-      // The hover duration tracking was creating 10 timer callbacks per second,
-      // accumulating over time and causing main thread saturation.
-      // This feature served no critical purpose and was a root cause of stutter.
-    }
-  }
-
-  void _cancelHoverTimer() {
-    _hoverTimer?.cancel();
-    _hoverProgressTimer?.cancel();
-
-    // PERFORMANCE FIX: Hover duration tracking removed, but keep state reset for compatibility
-    _interaction = _interaction.copyWith(hoverDuration: Duration.zero);
-    _emitInteraction();
+    _interactionDebounceTimer?.cancel();
+    _seekFeedbackTimer?.cancel();
   }
 
   bool _shouldShowControlsOnMouseMove() {
-    return _behavior.showControlsOnHover && _isPlaying && !_viewMode.isPip;
+    return _behavior.showControlsOnHover && _isPlaying;
   }
 
   bool _shouldShowControlsOnHover() {
     return _behavior.showControlsOnHover &&
         _isPlaying &&
-        !_viewMode.isPip &&
         !_visibility.showControls;
   }
 
@@ -809,10 +771,15 @@ class UIStateManager {
 
     if (_isDisposed) return;
 
-    // 1. Critical visibility blockers (PiP or Minimized)
-    // In PiP mode, we only hide everything if the controls aren't currently being shown.
-    // This allows temporary/forced control visibility (like after a click) to persist.
-    if (isMin || (isPip && !_visibility.showControls)) {
+    // 1. Critical visibility blockers (Minimized)
+    // In PiP mode, we no longer hide everything immediately if controls are visible.
+    // This allows hover-triggered visibility to persist.
+    if (isMin) {
+      _hideAllUI();
+      return;
+    }
+
+    if (isPip && !_visibility.showControls) {
       _hideAllUI();
       return;
     }
@@ -915,8 +882,6 @@ class UIStateManager {
   void clearAllTimers() {
     _autoHideTimer?.cancel();
     _mouseHideTimer?.cancel();
-    _hoverTimer?.cancel();
-    _hoverProgressTimer?.cancel();
     _interactionDebounceTimer?.cancel();
     _seekFeedbackTimer?.cancel();
   }
@@ -954,8 +919,6 @@ class UIStateManager {
       'timers': {
         'autoHideTimer': _autoHideTimer?.isActive ?? false,
         'mouseHideTimer': _mouseHideTimer?.isActive ?? false,
-        'hoverTimer': _hoverTimer?.isActive ?? false,
-        'hoverProgressTimer': _hoverProgressTimer?.isActive ?? false,
         'interactionDebounceTimer':
             _interactionDebounceTimer?.isActive ?? false,
       },

@@ -28,8 +28,12 @@ class GestureDetectorLayer extends StatelessWidget {
           onPointerHover: (event) {
             controller.handleMouseMove(event.localPosition);
           },
-          onPointerDown: (event) =>
-              controller.uiManager.handleMouseEnterVideo(),
+          onPointerMove: (event) {
+            controller.handleMouseMove(event.localPosition);
+          },
+          onPointerDown: (event) {
+            controller.uiManager.handleMouseEnterVideo();
+          },
           child: MouseRegion(
             cursor: ui.showMouseCursor
                 ? MouseCursor.defer

@@ -113,10 +113,8 @@ class _VideoProgressBarState extends State<VideoProgressBar>
     if (_isDragging) return;
 
     if (oldWidget.position != widget.position) {
-      final oldPos = oldWidget.position.inMilliseconds.toDouble();
       final newPos = widget.position.inMilliseconds.toDouble();
 
-      // Sync after user seek
       if (_isSeeking && _seekTarget != null) {
         const double threshold = 1000.0;
         final delta = (newPos - _seekTarget!).abs();
@@ -125,19 +123,17 @@ class _VideoProgressBarState extends State<VideoProgressBar>
           _isSeeking = false;
           _seekTarget = null;
           _currentPosition.value = newPos;
-          _animator.reset(newPos); // ensure animator consistent
+          _animator.reset(newPos);
         }
       } else {
+        final oldPos = oldWidget.position.inMilliseconds.toDouble();
         final delta = newPos - oldPos;
-        final isPlayback = delta > 0 && delta < 1000; // optimized threshold
+        final isPlayback = delta > 0 && delta < 1000;
 
+        _currentPosition.value = newPos;
         if (isPlayback) {
-          // Continuous playback → direct update
-          _currentPosition.value = newPos;
           _animator.sync(newPos);
         } else {
-          // Discrete jump / seek
-          _currentPosition.value = newPos;
           _animator.reset(newPos);
         }
       }
@@ -170,7 +166,7 @@ class _VideoProgressBarState extends State<VideoProgressBar>
     _isSeeking = true;
     _seekTarget = value;
     _currentPosition.value = value;
-    _animator.reset(value); // keep animator consistent
+    _animator.reset(value);
     widget.onSeek?.call(Duration(milliseconds: value.toInt()));
     widget.controller?.uiManager.showControlsTemporarily();
     widget.onSeekEnd?.call();
@@ -181,57 +177,84 @@ class _VideoProgressBarState extends State<VideoProgressBar>
     final double maxDuration = widget.duration.inMilliseconds.toDouble();
     if (maxDuration <= 0) return _buildEmptyProgressBar();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-
-        return MouseRegion(
-          hitTestBehavior: HitTestBehavior.opaque,
-          onEnter: (_) {
-            _isHovering.value = true;
-            _hoverController.forward();
-            widget.controller?.uiManager.showControlsPersistently();
-          },
-          onExit: (_) {
-            _isHovering.value = false;
-            _hoverController.reverse();
-            widget.controller?.uiManager.showControlsTemporarily();
-          },
-          onHover: (event) {
-            _hoverX.value = event.localPosition.dx;
-            widget.controller?.uiManager.showControlsTemporarily();
-          },
-          child: AnimatedBuilder(
-            animation: Listenable.merge([_toggleAnimation, _hoverAnimation]),
-            builder: (context, child) {
-              final toggleValue = _toggleAnimation.value;
-              final thumbHoverScale = 1.0 + (_hoverAnimation.value * 0.2);
-              final trackHoverScale = 1.0 + (_hoverAnimation.value * 1.0);
-
-              final currentHeight =
-                  (2.0 + (widget.barHeight - 2.0) * toggleValue) *
-                  trackHoverScale;
-              final currentRadius =
-                  (widget.handleRadius * toggleValue) * thumbHoverScale;
-
-              return Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.centerLeft,
-                children: [
-                  _buildBackgroundTrack(currentHeight),
-                  _buildBufferedProgress(maxDuration, width, currentHeight),
-                  _buildPlaybackSlider(
-                    maxDuration,
-                    currentHeight,
-                    currentRadius,
-                  ),
-                  _buildHoverTooltip(maxDuration, width),
-                ],
-              );
-            },
-          ),
-        );
+    return MouseRegion(
+      hitTestBehavior: HitTestBehavior.opaque,
+      onEnter: (_) {
+        _isHovering.value = true;
+        _hoverController.forward();
+        widget.controller?.uiManager.showControlsPersistently();
       },
+      onExit: (_) {
+        _isHovering.value = false;
+        _hoverController.reverse();
+        widget.controller?.uiManager.showControlsTemporarily();
+      },
+      onHover: (event) {
+        _hoverX.value = event.localPosition.dx;
+        widget.controller?.uiManager.showControlsTemporarily();
+      },
+      child: RepaintBoundary(
+        child: SizedBox(
+          height: widget.barHeight + widget.padding * 2,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // CustomPaint for zero-layout updates
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: widget.padding),
+                  child: CustomPaint(
+                    painter: ProgressBarPainter(
+                      position: _currentPosition,
+                      duration: maxDuration,
+                      buffered: widget.buffered,
+                      toggleAnimation: _toggleAnimation,
+                      hoverAnimation: _hoverAnimation,
+                      playedColor: widget.playedColor ?? Colors.red,
+                      bufferedColor: widget.bufferedColor ?? Colors.white38,
+                      backgroundColor: Colors.white24,
+                      handleColor: widget.handleColor ?? Colors.red,
+                      barHeight: widget.barHeight,
+                      handleRadius: widget.handleRadius,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Invisible Slider for interactions
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: widget.padding),
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: widget.barHeight * 2,
+                    trackShape: _ZeroPaddingTrackShape(),
+                    activeTrackColor: Colors.transparent,
+                    inactiveTrackColor: Colors.transparent,
+                    thumbColor: Colors.transparent,
+                    thumbShape: _InvisibleThumbShape(),
+                    overlayColor: Colors.transparent,
+                  ),
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _currentPosition,
+                    builder: (context, currentPos, _) {
+                      return Slider(
+                        padding: EdgeInsets.zero,
+                        value: currentPos.clamp(0.0, maxDuration),
+                        min: 0.0,
+                        max: maxDuration,
+                        onChanged: _handleSliderChanged,
+                        onChangeStart: _handleSliderChangeStart,
+                        onChangeEnd: _handleSliderChangeEnd,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              _buildHoverTooltipWrapper(maxDuration),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -249,119 +272,7 @@ class _VideoProgressBarState extends State<VideoProgressBar>
     );
   }
 
-  Widget _buildBackgroundTrack(double height) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: widget.padding),
-      child: Container(
-        width: double.infinity,
-        height: height,
-        decoration: BoxDecoration(
-          color: Colors.white24,
-          borderRadius: BorderRadius.circular(height / 2),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBufferedProgress(
-    double maxDuration,
-    double width,
-    double height,
-  ) {
-    if (widget.buffered.isEmpty) return const SizedBox.shrink();
-    final effectiveWidth = width - widget.padding * 2;
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: widget.padding),
-      child: SizedBox(
-        width: double.infinity,
-        height: height,
-        child: Stack(
-          children: widget.buffered.map((range) {
-            final start = range.start.inMilliseconds / maxDuration;
-            final end = range.end.inMilliseconds / maxDuration;
-            return Positioned(
-              left: start * effectiveWidth,
-              width: (end - start) * effectiveWidth,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                height: height,
-                decoration: BoxDecoration(
-                  color: widget.bufferedColor ?? Colors.white38,
-                  borderRadius: BorderRadius.circular(height / 2),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaybackSlider(
-    double maxDuration,
-    double height,
-    double radius,
-  ) {
-    return ValueListenableBuilder<double>(
-      valueListenable: _currentPosition,
-      builder: (context, currentPos, child) {
-        final clampedValue = currentPos.clamp(0.0, maxDuration);
-        final playedPercent = (clampedValue / maxDuration).clamp(0.0, 1.0);
-
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: widget.padding),
-          child: Stack(
-            alignment: Alignment.centerLeft,
-            children: [
-              FractionallySizedBox(
-                widthFactor: playedPercent,
-                child: Container(
-                  height: height,
-                  decoration: BoxDecoration(
-                    color: widget.playedColor ?? Colors.white,
-                    borderRadius: BorderRadius.circular(height / 2),
-                  ),
-                ),
-              ),
-              SliderTheme(
-                data: SliderThemeData(
-                  trackHeight: height,
-                  trackShape: _ZeroPaddingTrackShape(),
-                  activeTrackColor: Colors.transparent,
-                  inactiveTrackColor: Colors.transparent,
-                  thumbColor:
-                      widget.handleColor?.withValues(
-                        alpha: (radius / widget.handleRadius).clamp(0.0, 1.0),
-                      ) ??
-                      Colors.red,
-                  thumbShape: RoundSliderThumbShape(enabledThumbRadius: radius),
-                  overlayShape: RoundSliderOverlayShape(
-                    overlayRadius: radius * 2,
-                  ),
-                  overlayColor:
-                      widget.handleColor?.withValues(alpha: 0.2) ??
-                      Colors.black26,
-                ),
-                child: Slider(
-                  padding: EdgeInsets.zero,
-                  value: clampedValue,
-                  min: 0.0,
-                  max: maxDuration,
-                  onChanged: _handleSliderChanged,
-                  onChangeStart: _handleSliderChangeStart,
-                  onChangeEnd: _handleSliderChangeEnd,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildHoverTooltip(double maxDuration, double width) {
+  Widget _buildHoverTooltipWrapper(double maxDuration) {
     return ValueListenableBuilder<bool>(
       valueListenable: _isHovering,
       builder: (context, isHovering, child) {
@@ -373,6 +284,7 @@ class _VideoProgressBarState extends State<VideoProgressBar>
             return ValueListenableBuilder<double>(
               valueListenable: _currentPosition,
               builder: (context, currentPos, child) {
+                final width = MediaQuery.of(context).size.width;
                 final effectiveWidth = width - widget.padding * 2;
                 final double displayTime;
                 final double innerDisplayX;
@@ -399,13 +311,11 @@ class _VideoProgressBarState extends State<VideoProgressBar>
 
                 final duration = Duration(milliseconds: displayTime.toInt());
 
-                // Calculate tooltip width dynamically
                 final bool showThumbnail =
                     widget.controller != null &&
                     widget.controller!.enableThumbnail;
                 final double tooltipWidth = showThumbnail ? 160.0 : 50.0;
 
-                // Center the tooltip on the cursor (innerDisplayX), then clamp to screen bounds
                 final double leftPos =
                     (widget.padding + innerDisplayX - (tooltipWidth / 2)).clamp(
                       0.0,
@@ -463,35 +373,145 @@ class _VideoProgressBarState extends State<VideoProgressBar>
   }
 }
 
-/// Optimized ProgressAnimator
+class ProgressBarPainter extends CustomPainter {
+  final ValueNotifier<double> position;
+  final double duration;
+  final List<BufferRange> buffered;
+  final Animation<double> toggleAnimation;
+  final Animation<double> hoverAnimation;
+  final Color playedColor;
+  final Color bufferedColor;
+  final Color backgroundColor;
+  final Color handleColor;
+  final double barHeight;
+  final double handleRadius;
+
+  ProgressBarPainter({
+    required this.position,
+    required this.duration,
+    required this.buffered,
+    required this.toggleAnimation,
+    required this.hoverAnimation,
+    required this.playedColor,
+    required this.bufferedColor,
+    required this.backgroundColor,
+    required this.handleColor,
+    required this.barHeight,
+    required this.handleRadius,
+  }) : super(
+         repaint: Listenable.merge([position, toggleAnimation, hoverAnimation]),
+       );
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (duration <= 0) return;
+
+    final toggleValue = toggleAnimation.value;
+    final hoverValue = hoverAnimation.value;
+
+    final trackHoverScale = 1.0 + (hoverValue * 1.0);
+    final thumbHoverScale = 1.0 + (hoverValue * 0.2);
+
+    final currentHeight =
+        (2.0 + (barHeight - 2.0) * toggleValue) * trackHoverScale;
+    final currentRadius = (handleRadius * toggleValue) * thumbHoverScale;
+
+    final centerY = size.height / 2;
+    final barRect = Rect.fromLTWH(
+      0,
+      centerY - currentHeight / 2,
+      size.width,
+      currentHeight,
+    );
+    final RRect barRRect = RRect.fromRectAndRadius(
+      barRect,
+      Radius.circular(currentHeight / 2),
+    );
+
+    // 1. Draw Background
+    final Paint bgPaint = Paint()..color = backgroundColor;
+    canvas.drawRRect(barRRect, bgPaint);
+
+    // 2. Draw Buffered Ranges
+    final Paint bufferPaint = Paint()..color = bufferedColor;
+    for (final range in buffered) {
+      final start =
+          (range.start.inMilliseconds / duration).clamp(0.0, 1.0) * size.width;
+      final end =
+          (range.end.inMilliseconds / duration).clamp(0.0, 1.0) * size.width;
+      if (end > start) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+              start,
+              centerY - currentHeight / 2,
+              end - start,
+              currentHeight,
+            ),
+            Radius.circular(currentHeight / 2),
+          ),
+          bufferPaint,
+        );
+      }
+    }
+
+    // 3. Draw Played Progress
+    final playedWidth =
+        (position.value / duration).clamp(0.0, 1.0) * size.width;
+    final Paint playedPaint = Paint()..color = playedColor;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          0,
+          centerY - currentHeight / 2,
+          playedWidth,
+          currentHeight,
+        ),
+        Radius.circular(currentHeight / 2),
+      ),
+      playedPaint,
+    );
+
+    // 4. Draw Handle
+    if (toggleValue > 0) {
+      final Paint handlePaint = Paint()
+        ..color = handleColor.withValues(alpha: toggleValue);
+      canvas.drawCircle(
+        Offset(playedWidth, centerY),
+        currentRadius,
+        handlePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant ProgressBarPainter oldDelegate) => true;
+}
+
 class ProgressAnimator {
   final TickerProvider vsync;
   late final AnimationController _controller;
-  double _value;
   bool _locked = false;
 
   ProgressAnimator({
     required this.vsync,
     double initialValue = 0.0,
     Duration duration = const Duration(milliseconds: 300),
-  }) : _value = initialValue {
+  }) {
     _controller = AnimationController(vsync: vsync, duration: duration);
     _controller.value = 0.0;
   }
 
-  double get value => _value;
-  bool get isLocked => _locked;
+  double get value => _controller.value;
 
   void sync(double value) {
     if (_locked) return;
-    _value = value;
-    // Set controller starting point proportionally if needed for future animateTo
-    _controller.value = 0.0;
+    _controller.animateTo(value.clamp(0.0, 1.0));
   }
 
-  void jump(double value) {
-    _controller.stop();
-    _value = value;
+  void jumpTo(double value) {
+    if (_locked) return;
+    _controller.value = value.clamp(0.0, 1.0);
   }
 
   void lock() {
@@ -505,8 +525,8 @@ class ProgressAnimator {
 
   void reset([double value = 0.0]) {
     _controller.stop();
-    _value = value;
     _locked = false;
+    _controller.value = value.clamp(0.0, 1.0);
   }
 
   void dispose() {
@@ -528,5 +548,28 @@ class _ZeroPaddingTrackShape extends RoundedRectSliderTrackShape {
     final trackTop = offset.dy + (parentBox.size.height - trackHeight) / 2;
     final trackWidth = parentBox.size.width;
     return Rect.fromLTWH(trackLeft, trackTop, trackWidth, trackHeight);
+  }
+}
+
+class _InvisibleThumbShape extends SliderComponentShape {
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(20, 20);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    // Zero-draw: ensures no shadow or default material artifacts appear
   }
 }
