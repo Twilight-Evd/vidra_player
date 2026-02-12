@@ -324,13 +324,13 @@ class _VideoProgressBarState extends State<VideoProgressBar>
 
                 return Positioned(
                   left: leftPos,
-                  bottom: 12,
+                  bottom: 18,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (showThumbnail)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.only(bottom: 5),
                           child: ThumbnailPreview(
                             controller: widget.controller!,
                             url: widget
