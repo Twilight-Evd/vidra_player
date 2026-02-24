@@ -64,7 +64,7 @@ class MediaManager with LifecycleTokenProvider {
       _mediaCtrl.add(_state);
     }
 
-    if (episodes.length > 1) {
+    if (episodes.isNotEmpty) {
       getAllHistories();
       getPlayerSettings();
     }
